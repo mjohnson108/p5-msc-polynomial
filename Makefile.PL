@@ -17,8 +17,8 @@ my %WriteMakefileArgs = (
         'Test::More' => '0',
     },
     PREREQ_PM => {
-        #'ABC'              => '1.6',
-        #'Foo::Bar::Module' => '5.0401',
+        'Math::Symbolic'                  =>  '0.613',
+        'Math::Symbolic::Custom::Collect' =>    '0.2',
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean => { FILES => 'Math-Symbolic-Custom-Polynomial-*' },
