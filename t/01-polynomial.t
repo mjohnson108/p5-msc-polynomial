@@ -118,6 +118,59 @@ foreach my $k (sort keys %tests2) {
     ok(($a1 == 0) && ($a2 == 0) && ($a3 == 0), "Roots take polynomial to zero ($k)");
 }
 
-done_testing( 6*scalar(keys %tests) + scalar(keys %tests2) );
+my %tests3 = (
+	"Test 3.01"	=>	{ expr => "k*x^2 + 3*x + 2", var => 'x', coeffs => ['k', 3, 2] },
+	"Test 3.02"	=>	{ expr => "y^2 + 2", var => 'y', coeffs => [1, 0, 2] },
+	"Test 3.03"	=>	{ expr => "z^3 - 3*z + 2", var => 'z', coeffs => [1, 0, -3, 2] },
+	"Test 3.04"	=>	{ expr => "k*V1^3 - 5*V1^2 + k - 1", var => 'V1', coeffs => ['k', -5, 0, 'k - 1'] },
+	"Test 3.05"	=>	{ expr => "-(y^2) - y - 1", var => 'y', coeffs => [-1, -1, -1] },
+	"Test 3.06"	=>	{ expr => "y^2 - y - 1", var => 'y', coeffs => [1, -1, -1] },
+	"Test 3.07"	=>	{ expr => "0.5*x^2 + k*x + 12", var => "x", coeffs => ['1 / 2', 'k', 12] },
+	"Test 3.08"	=>	{ expr => "u*t + (1/2)*a*t^2", var => "t", coeffs => ['a / 2', 'u', 0] },
+	"Test 3.09"	=>	{ expr => "x^2 + 5*x + 6", var => "x", coeffs => [1, 5, 6] },
+	"Test 3.10"	=>	{ expr => "4*x^3 - 3*x^2 + 7*x - 2", var => "x", coeffs => [4, -3, 7, -2] },
+	"Test 3.11"	=>	{ expr => "7*x^4 + 2*x^3 - x^2 + 8", var => "x", coeffs => [7, 2, -1, 0, 8] },
+	"Test 3.12"	=>	{ expr => "x^6 + 6*x^5 - 5*x^4 + 4*x^3 - 3*x^2 + 2*x + 1", var => "x", 
+						coeffs => [1, 6, -5, 4, -3, 2, 1] },
+	"Test 3.13"	=>	{ expr => "p*z^3 + q*z^2 + r*z + s", var => "z", coeffs => ['p', 'q', 'r', 's'] },
+	"Test 3.14"	=>	{ expr => "phi^8 + 3*phi^7 - 5*phi^6 + 2*phi^5 -7*phi^4 + phi^3 + phi^2 - 2*phi + 9", var => "phi", 
+						coeffs => [1, 3, -5, 2, -7, 1, 1, -2, 9] },
+    "Test 3.15"	=>	{ expr => "a*x^2 + c*x + e - d*x + b*x^2", var => "x", coeffs => ['a + b', 'c - d', 'e'] },
+	"Test 3.16"	=>	{ expr => "(k-1)*x^2 + 3*k*x + 2", var => "x", coeffs => ['k - 1', '3 * k', 2] },
+	"Test 3.17"	=>	{ expr => "(m-n)*x^4 + (p+q)*x^3 - x^2 + (a-b)*x + c", var => "x", 
+						coeffs => ['m - n', 'p + q', -1, 'a - b', 'c'] },
+	"Test 3.18"	=>	{ expr => "k*x^5 - r*x + o*x^3 + (l-m)*x^4 + o*x^3 + n*x^3 + p*x^2 + q*x + s", var => "x", 
+						coeffs => ['k', 'l - m', 'n + (2 * o)', 'p', 'q - r'] },
+);
+	
+TEST: foreach my $test (sort keys %tests3) {
+
+	my $expr = parse_from_string($tests3{$test}{expr});
+	ok(defined($expr), "Expression parsed ($expr)");
+	
+	my ($v, $co) = $expr->test_polynomial();
+	ok(defined($v) && defined($co), "test_polynomial() returned output");
+	
+	ok($v eq $tests3{$test}{var}, "test_polynomial() detected indeterminate variable ($v)");
+	
+	my @test_coeffs = @{$tests3{$test}{coeffs}};
+	my $num_coeffs = scalar(@test_coeffs);
+	my $coeffs_match = 1;
+	# assume test_polynomial() returns the correct coefficients and try to disprove that
+	CHECK_COEFF: foreach my $i (0..$num_coeffs-1) {
+		if (!defined($co->[$i])) {
+			$coeffs_match = 0;
+			last CHECK_COEFF;
+		}
+		elsif ( $co->[$i]->to_string() ne $test_coeffs[$i] ) {
+			$coeffs_match = 0;
+			last CHECK_COEFF;
+		}
+	}
+	
+	ok($coeffs_match, "test_polynomial() returns correct coefficients");
+}
+
+done_testing( 6*scalar(keys %tests) + scalar(keys %tests2) + 4*scalar(keys %tests3) );
 
 

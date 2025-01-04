@@ -14,7 +14,7 @@ Math::Symbolic::Custom::Polynomial - Polynomial routines for Math::Symbolic
 
 =head1 VERSION
 
-Version 0.11
+Version 0.2
 
 =cut
 
@@ -23,10 +23,10 @@ require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw/symbolic_poly/;
 
-our $VERSION = '0.11';
+our $VERSION = '0.2';
 
 use Math::Symbolic qw(:all);
-use Math::Symbolic::Custom::Collect 0.2;
+use Math::Symbolic::Custom::Collect 0.32;
 use Math::Symbolic::Custom::Base;
 
 BEGIN {
@@ -109,6 +109,35 @@ tries to extract polynomial coefficients (so long as the expression represents a
             $some_poly->value('k' => 3, 'x' => $root1), 
             "\n\tat k = 3 and x = $root2:\t", 
             $some_poly->value('k' => 3, 'x' => $root2), "\n\n";
+            
+    # finding roots with Math::Polynomial::Solve
+    use Math::Polynomial::Solve qw(poly_roots coefficients);
+    coefficients order => 'descending';
+
+    # some big polynomial
+    my $big_poly = parse_from_string("phi^8 + 3*phi^7 - 5*phi^6 + 2*phi^5 -7*phi^4 + phi^3 + phi^2 - 2*phi + 9");
+    # if test_polynomial() is not supplied with the indeterminate variable, it will try to autodetect
+    my ($var, $co) = $big_poly->test_polynomial();  
+    my @coeffs = @{$co};
+    my $degree = scalar(@coeffs)-1;
+
+    print "'$big_poly' is a polynomial in $var of degree $degree with " . 
+                "coefficients (ordered in descending powers): (", join(", ", @coeffs), ")\n";
+
+    # Find the roots of the polynomial using Math::Polynomial::Solve. 
+    my @roots = poly_roots( 
+          # call value() on each coefficient to get a number.
+          # if there were any parameters, we would have to supply their value
+          # here to force the coefficients down to a number.
+          map { $_->value() } @coeffs 
+          );
+
+    print "The roots and corresponding values of the polynomial are:-\n";
+    foreach my $root (@roots) {
+          # put back into the original expression to verify
+          my $val = $big_poly->value('phi' => $root);
+          print "\t$root => $val\n";
+    }
 
 =head1 symbolic_poly
 
@@ -179,15 +208,16 @@ sub symbolic_poly {
 
 =head1 test_polynomial
 
-Exported through the Math::Symbolic module extension class. Call it on a polynomial Math::Symbolic expression  
-(for the moment, the indeterminate variable has to be provided) and it will attempt to figure out the
-coefficient expressions. 
+Exported through the Math::Symbolic module extension class. Call it on a polynomial Math::Symbolic expression and it will 
+try to determine the coefficient expressions. 
 
+Takes one parameter, the indeterminate variable. If this is not provided, test_polynomial will try to detect the variable. This
+can be useful to test if a Math::Symbolic expression looks like a polynomial.
+ 
 If the expression looks like a polynomial of degree 2, then it will apply the quadratic equation to produce
 expressions for the roots, and the discriminant.
 
 =cut
-
 
 sub test_polynomial {
     my ($f, $ind) = @_;
@@ -207,7 +237,43 @@ sub test_polynomial {
     my $terms = $n_hr->{terms};
     my $trees = $n_hr->{trees};
 
-    my $var = $ind; # TODO: try to autodetect indeterminate if not supplied
+    if ( !defined($ind) ) {
+        # try to detect indeterminate variable
+        # get some statistics on the variables in the expression
+        my $num_terms = scalar(keys %{$terms});
+        my %v_freq;
+        my %v_pows; 
+        while ( my ($k, $v) = each %{$terms} ) {
+            foreach my $v2 (split(/,/, $k)) {
+                my ($vv, $p) = split(/:/, $v2);
+                if ( $vv =~ /^VAR/ ) {
+                    $v_freq{$vv}++;
+                    $v_pows{$p}{$vv}++;
+                }
+            }
+        }
+
+        if ( scalar(keys %v_freq) == 1 ) {
+            # only one variable
+            my @v = keys %v_freq;
+            $ind = $trees->{$v[0]}{name};
+        }
+        else {
+            # find highest power
+            my @p_s = sort { $b <=> $a } keys %v_pows;
+            my $highest_p = $p_s[0];
+
+            my @t3 = 
+                map { $_->[0] }
+                sort { $b->[1] <=> $a->[1] }
+                map { [$_, $v_freq{$_}] }
+                keys %{$v_pows{$highest_p}};
+            
+            $ind = $trees->{$t3[0]}{name};
+        }
+    }
+
+    my $var = $ind;
     my @coeffs;
     my @constants;
     # save off the constant accumulator immediately
@@ -215,7 +281,7 @@ sub test_polynomial {
     delete $terms->{constant_accumulator};
 
     # ...assume we've figured out the indeterminate of the polynomial
-    my @vars = grep { $trees->{$_}{name} eq $var } keys %{$trees};
+    my @vars = grep { $trees->{$_}{name} eq $var } grep { /^VAR/ } keys %{$trees};
     if ( scalar(@vars) == 0 ) {
         carp("Passed indeterminate '$ind' but no variable in expression matches.");
         return undef;
@@ -265,11 +331,15 @@ sub test_polynomial {
             my ($v, $p) = split(/:/, $pkss[0]);     # there should be only one.
            
             # save this coefficient in a slot corresponding to the index of the indeterminate in this term
-            $coeffs[$p] = $ntp;
-            $coeffs[$p] /= $denominator if defined $denominator;
+            if ( defined($coeffs[$p]) ) {
+                $coeffs[$p] += $ntp;
+            }
+            else {
+                $coeffs[$p] = $ntp;
+            }
         }
     }
-
+    
     # deal with the constant terms
     my $const = shift @constants;
     while (@constants) {
@@ -278,7 +348,12 @@ sub test_polynomial {
     }
 
     $coeffs[0] = $const;
-    $coeffs[0] /= $denominator if defined $denominator;
+
+    if ( defined $denominator ) {
+        foreach my $p (0..scalar(@coeffs)-1) {
+            $coeffs[$p] /= $denominator;
+        }
+    }
 
     if ( defined $var ) {
         # post-process the extracted coefficients. Simplify coefficients and set undefined coefficients to 0
@@ -335,16 +410,11 @@ L<Math::Symbolic>
 
 L<Math::Polynomial>
 
+L<Math::Polynomial::Solve>
+
 =head1 AUTHOR
 
 Matt Johnson, C<< <mjohnson at cpan.org> >>
-
-=head1 BUGS
-
-Please report any bugs or feature requests to C<bug-math-symbolic-custom-polynomial at rt.cpan.org>, or through
-the web interface at L<https://rt.cpan.org/NoAuth/ReportBug.html?Queue=Math-Symbolic-Custom-Polynomial>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
-
 
 =head1 ACKNOWLEDGEMENTS
 
@@ -361,5 +431,4 @@ the same terms as the Perl 5 programming language system itself.
 
 1; 
 __END__
-
 

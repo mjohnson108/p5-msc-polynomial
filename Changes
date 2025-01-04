@@ -1,5 +1,11 @@
 Revision history for Math-Symbolic-Custom-Polynomial
 
+0.2     Sat Jan 04 10:00 2025
+
+        - test_polynomial() will try to detect polynomial variable if it is not supplied
+        - Fixed bug in coefficient collection
+        - Added an example
+
 0.11    Fri Nov 29 10:02 2024
 
         - Updated POD
