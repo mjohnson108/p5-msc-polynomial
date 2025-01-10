@@ -148,6 +148,7 @@ TEST: foreach my $test (sort keys %tests3) {
 	my $expr = parse_from_string($tests3{$test}{expr});
 	ok(defined($expr), "Expression parsed ($expr)");
 	
+    # check test_polynomial() operation without specifying indeterminate variable
 	my ($v, $co) = $expr->test_polynomial();
 	ok(defined($v) && defined($co), "test_polynomial() returned output");
 	
@@ -171,6 +172,80 @@ TEST: foreach my $test (sort keys %tests3) {
 	ok($coeffs_match, "test_polynomial() returns correct coefficients");
 }
 
-done_testing( 6*scalar(keys %tests) + scalar(keys %tests2) + 4*scalar(keys %tests3) );
+# test apply_synthetic_division()
+my %synth_div_const_tests = (
+    "Test 01"   =>  { var => 'x', coeffs => [2, -6, 2, -1], divisor => 3, quotient => [2, 0, 2], remainder => 5 }, 
+    "Test 02"   =>  { var => 'y', coeffs => [5, -8, 9, 12], divisor => 3, quotient => [5, 7, 30], remainder => 102 },
+    "Test 03"   =>  { var => 'z', coeffs => [3, -1, 0, 4, -8], divisor => 1, quotient => [3, 2, 2, 6], remainder => -2 },
+    "Test 04"   =>  { var => 'x', coeffs => [2, -5, -8, 15], divisor => 3, quotient => [2, 1, -5], remainder => 0 },
+    "Test 05"   =>  { var => 'x', coeffs => [1, 2, -4, 1], divisor => 1, quotient => [1, 3, -1], remainder => 0 },
+    "Test 06"   =>  { var => 'x', coeffs => [3, -2, 0, -150], divisor => 4, quotient => [3, 10, 40], remainder => 10 },
+    "Test 07"   =>  { var => 'x', coeffs => [2, 3, -5, 6], divisor => 2, quotient => [2, 7, 9], remainder => 24 },
+    "Test 08"   =>  { var => 'x', coeffs => [5, -22, 9, -6, 14], divisor => 4, quotient => [5, -2, 1, -2], remainder => 6 },
+    "Test 09"   =>  { var => 'x', coeffs => [1, 0, -3, 0, -4, -1], divisor => 1, quotient => [1, 1, -2, -2, -6], remainder => -7 },
+);
+
+foreach my $test_name (sort keys %synth_div_const_tests) {
+
+    my $test = $synth_div_const_tests{$test_name};
+
+    my $f = symbolic_poly($test->{var}, $test->{coeffs});
+
+    my ($full_expr, $divisor, $quotient, $remainder) = $f->apply_synthetic_division($test->{divisor});
+
+    ok($f->test_num_equiv($full_expr), "Synthetic division $test_name: original polynomial P numerically equivalent to D*Q + R");
+
+    my $test_quotient = symbolic_poly($test->{var}, $test->{quotient});
+    ok($test_quotient->test_num_equiv($quotient), "Synthetic division $test_name: quotient numerically equivalent ($test_quotient |vs| $quotient)" );
+
+    my $test_remainder = parse_from_string($test->{remainder});
+    ok($test_remainder->test_num_equiv($remainder), "Synthetic division $test_name: remainder numerically equivalent ($test_remainder |vs| $remainder)" );
+}
+
+# test apply_polynomial_division()
+my %poly_div_const_tests = (
+    "Test 01"   =>  { var => 'x', coeffs => [2, -3, -3, 2], divisor => [1, -2], quotient => [2, 1, -1], remainder => [0] }, 
+    "Test 02"   =>  { var => 'x', coeffs => [2, 3, 0, -1], divisor => [2, -1], quotient => [1, 2, 1], remainder => [0] },
+    "Test 03"   =>  { var => 'x', coeffs => [2, -11, 12, -35], divisor => [1, -5], quotient => [2, -1, 7], remainder => [0] },
+    "Test 04"   =>  { var => 'x', coeffs => [-3, 11, -13, 26, -15], divisor => [1, -3], quotient => [-3, 2, -7, 5], remainder => [0] },
+    "Test 05"   =>  { var => 'x', coeffs => [-18, 33, -29, 10], divisor => [-3, 2], quotient => [6, -7, 5], remainder => [0] },
+    "Test 06"   =>  { var => 'x', coeffs => [2, 12, 14, -8, 0], divisor => [1, 4], quotient => [2, 4, -2, 0], remainder => [0] }, 
+    "Test 07"   =>  { var => 'x', coeffs => [4, 4, -1, 1], divisor => [2, 1], quotient => [2, 1, -1], remainder => [2] }, 
+    "Test 08"   =>  { var => 'x', coeffs => [15, -1, 7, 0, 5], divisor => [3, 1], quotient => [5, -2, 3, -1], remainder => [6] }, 
+    "Test 09"   =>  { var => 'x', coeffs => [3, 19, -25, -57, 130], divisor => [-1, -7], quotient => [-3, 2, 11, -20], remainder => [-10] }, 
+    "Test 10"   =>  { var => 'x', coeffs => [-8, 24, -12, 17, -26], divisor => [-2, 5], quotient => [4, -2, 1, -6], remainder => [4] }, 
+    "Test 11"   =>  { var => 'x', coeffs => [3, 4, 0, 1, 3, 1], divisor => [1, 2, 1], quotient => [3, -2, 1, 1], remainder => [0] }, 
+    "Test 12"   =>  { var => 'x', coeffs => [-2, 13, -3, 37, 35], divisor => [2, -1, 7], quotient => [-1, 6, 5], remainder => [0] }, 
+    "Test 13"   =>  { var => 'x', coeffs => [-2, 3, -4, -24, 7], divisor => [1, -3, 7], quotient => [-2, -3, 1], remainder => [0] }, 
+    "Test 14"   =>  { var => 'x', coeffs => [2, 6, 11, -11, 5, -7], divisor => [2, 0, 1], quotient => [1, 3, 5, -7], remainder => [0] }, 
+    "Test 15"   =>  { var => 'x', coeffs => [-6, -12, 25, -10, -14, 12], divisor => [-3, 0, 2], quotient => [2, 4, -7, 6], remainder => [0] }, 
+    "Test 16"   =>  { var => 'x', coeffs => [3, -4, 12, -6, 11], divisor => [1, 0, 2], quotient => [3, -4, 6], remainder => [2, -1] }, 
+    "Test 17"   =>  { var => 'x', coeffs => [1, 1, 0, 10, 10, 7], divisor => [1, 2, 0], quotient => [1, -1, 2, 6], remainder => [-2, 7] }, 
+    "Test 18"   =>  { var => 'x', coeffs => [-6, 3, -4, 20, -3, 10], divisor => [3, 0, 2], quotient => [-2, 1, 0, 6], remainder => [-3, -2] }, 
+    "Test 19"   =>  { var => 'x', coeffs => [4, -4, -4, 6, -7], divisor => [2, 2, -1], quotient => [2, -4, 3], remainder => [-4, -4] }, 
+    "Test 20"   =>  { var => 'x', coeffs => [-3, 3, -19, -3, 17, -9], divisor => [-1, 1, -7], quotient => [3, 0, -2, 1], remainder => [2, -2] }, 
+
+);
+
+foreach my $test_name (sort keys %poly_div_const_tests) {
+
+    my $test = $poly_div_const_tests{$test_name};
+    my $var = $test->{var};
+
+    my $f = symbolic_poly($var, $test->{coeffs});
+    my $d = symbolic_poly($var, $test->{divisor});
+
+    my ($full_expr, $divisor, $quotient, $remainder) = $f->apply_polynomial_division($d);
+
+    ok($f->test_num_equiv($full_expr), "Polynomial division $test_name: original polynomial P numerically equivalent to D*Q + R");
+
+    my $test_quotient = symbolic_poly($var, $test->{quotient});
+    ok($test_quotient->test_num_equiv($quotient), "Polynomial division $test_name: quotient numerically equivalent ($test_quotient |vs| $quotient)" );
+    
+    my $test_remainder = symbolic_poly($var, $test->{remainder});
+    ok($test_remainder->test_num_equiv($remainder), "Polynomial division $test_name: remainder numerically equivalent ($test_remainder |vs| $remainder)" );
+}
+
+done_testing( 6*scalar(keys %tests) + scalar(keys %tests2) + 4*scalar(keys %tests3) + 3*scalar(keys %synth_div_const_tests)  + 3*scalar(keys %poly_div_const_tests));
 
 
