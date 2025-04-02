@@ -14,7 +14,7 @@ Math::Symbolic::Custom::Polynomial - Polynomial routines for Math::Symbolic
 
 =head1 VERSION
 
-Version 0.3
+Version 0.31
 
 =cut
 
@@ -23,10 +23,10 @@ require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw/symbolic_poly/;
 
-our $VERSION = '0.3';
+our $VERSION = '0.31';
 
-use Math::Symbolic qw(:all);
-use Math::Symbolic::Custom::Collect 0.32;
+use Math::Symbolic 0.613 qw(:all);
+use Math::Symbolic::Custom::Collect 0.36;
 use Math::Symbolic::Custom::Base;
 
 BEGIN {
